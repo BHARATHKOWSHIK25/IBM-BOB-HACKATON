@@ -1,6 +1,13 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from functools import lru_cache
 import os
+
+
+def _default_database_url() -> str:
+    if os.getenv("VERCEL"):
+        return "sqlite+aiosqlite:////tmp/depphantom.db"
+    return "sqlite+aiosqlite:///./depphantom.db"
 
 
 class Settings(BaseSettings):
@@ -9,7 +16,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = False
 
-    database_url: str = "sqlite+aiosqlite:///./depphantom.db"
+    database_url: str = Field(default_factory=_default_database_url)
 
     # Registry endpoints
     pypi_api_url: str = "https://pypi.org/pypi"
