@@ -1,5 +1,9 @@
 name: CI
 
+name: Install dependencies
+run: pip install -r requirements-dev.txt
+working-directory: ./depphantom/backend # Adjust this to your actual folder path
+
 on:
   push:
     branches: [main, develop]
