@@ -316,5 +316,6 @@ class TestInputValidation:
             VerifyRequest(
                 package="my package",
                 ecosystem=EcosystemEnum.pypi
-            )      
+            )
+   
 
