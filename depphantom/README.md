@@ -36,6 +36,8 @@ DepPhantom:
 | **AI Intent Verification** | Compares AI-stated need vs. package apparent purpose |
 | **Explainable Risk Engine** | Transparent scoring — every decision has evidence |
 | **ALLOW / REVIEW / BLOCK** | Configurable policy-based decisions |
+| **Fail-Closed** | Registry errors → REVIEW/BLOCK, never silent ALLOW |
+| **Input Validation** | Package names validated against safe character allowlist |
 | **Audit Trail** | Full event log of all verification decisions |
 | **Demo Center** | Four built-in attack scenarios for demonstration |
 
@@ -45,58 +47,65 @@ DepPhantom:
 
 ### Option A — Docker Compose (Recommended)
 
+**Prerequisites**: Docker + Docker Compose
+
 ```bash
 git clone <repo-url>
 cd depphantom
 
-# Copy and configure environment
+# Copy and configure environment (no changes needed for local demo)
 cp .env.example .env
 
-# Build and start
+# Build and start (first run takes ~2 minutes to build)
 docker-compose up --build
 ```
 
-Open: http://localhost
+- Frontend: http://localhost
+- API docs: http://localhost/api/docs
+- Health: http://localhost/api/health
 
-API: http://localhost/api/docs
+**For a custom domain deployment:**
+
+```bash
+CORS_ORIGINS=https://your-domain.com docker-compose up --build
+```
 
 ---
 
 ### Option B — Local Development
 
-#### Backend
+**Prerequisites**: Python 3.11+, Node.js 18+
 
-**Requirements**: Python 3.11+
+#### Backend
 
 ```bash
 cd depphantom
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv .venv
 
-# Activate (Linux/macOS)
+# Linux/macOS:
 source .venv/bin/activate
 
-# Activate (Windows)
+# Windows:
 .venv\Scripts\activate
 
 # Install dependencies
 pip install -r backend/requirements.txt
 
-# Copy environment config
+# Copy environment config (no changes needed for local dev)
 cp .env.example .env
 
 # Start the backend
 python startup.py
 ```
 
-Backend runs at: http://localhost:8000
-
+Backend runs at: http://localhost:8000  
 API docs: http://localhost:8000/api/docs
 
 #### Frontend
 
-**Requirements**: Node.js 18+
+In a separate terminal:
 
 ```bash
 cd depphantom/frontend
@@ -107,7 +116,7 @@ npm run dev
 
 Frontend runs at: http://localhost:5173
 
-> The Vite dev server automatically proxies `/api` requests to the backend.
+> The Vite dev server automatically proxies `/api` requests to the backend at `localhost:8000`.
 
 ---
 
@@ -119,17 +128,36 @@ Copy `.env.example` to `.env` and adjust as needed:
 cp .env.example .env
 ```
 
-Key variables:
-
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `sqlite+aiosqlite:///./depphantom.db` | Database connection |
-| `CORS_ORIGINS` | `http://localhost:5173,...` | Allowed frontend origins |
+| `CORS_ORIGINS` | `http://localhost:5173,...` | Allowed frontend origins (comma-separated) |
 | `REGISTRY_TIMEOUT` | `10.0` | Registry API timeout (seconds) |
-| `TYPOSQUATTING_SIMILARITY_THRESHOLD` | `0.80` | Similarity threshold (0-1) |
-| `NEW_PACKAGE_AGE_DAYS` | `30` | Days before a package is "new" |
-| `DEMO_MODE` | `true` | Enable demo scenarios |
-| `DEBUG` | `false` | Enable debug logging |
+| `TYPOSQUATTING_SIMILARITY_THRESHOLD` | `0.80` | Similarity threshold for typosquatting detection (0–1) |
+| `NEW_PACKAGE_AGE_DAYS` | `30` | Package age threshold (days) for "new package" signal |
+| `DEMO_MODE` | `true` | Enable demo scenarios (does not affect live analysis) |
+| `DEBUG` | `false` | Enable debug logging (disable in production) |
+
+---
+
+## Running Tests
+
+```bash
+cd depphantom
+python -m pytest backend/tests/ -v
+```
+
+Expected: **28 tests pass**.
+
+Test coverage includes:
+- Typosquatting detection
+- Risk engine scoring
+- Decision policy
+- Intent analysis
+- Metadata analysis
+- Demo scenarios
+- **Registry fail-closed behavior** (registry error → never ALLOW)
+- **Input validation** (path traversal, shell metacharacters blocked)
 
 ---
 
@@ -152,16 +180,18 @@ curl -X POST http://localhost:8000/api/dependencies/verify \
 Response:
 ```json
 {
-  "decision": "block",
-  "overall_risk": "critical",
+  "package": "requets",
+  "overall_risk": "CRITICAL",
+  "decision": "BLOCK",
   "confidence": 0.97,
   "reasons": [
-    "Package name is 94% similar to trusted package 'requests'",
+    "Package name is 95% similar to trusted package 'requests'",
     "Package was registered only 5 days ago",
     "Installation script contains dangerous patterns"
   ],
   "explanation": "...",
-  "pipeline_steps": [...]
+  "pipeline_steps": [...],
+  "typosquat": { "closest_match": "requests", "similarity_score": 0.95 }
 }
 ```
 
@@ -172,10 +202,12 @@ Response:
 | `POST` | `/api/dependencies/verify` | Verify a dependency before installation |
 | `GET` | `/api/dependencies/{id}` | Get a previous verification result |
 | `GET` | `/api/dashboard` | Dashboard statistics |
-| `GET` | `/api/events` | Audit log (filterable) |
+| `GET` | `/api/events` | Audit log (filterable by risk, decision, ecosystem, package) |
 | `GET` | `/api/policies` | Current policy configuration |
 | `PUT` | `/api/policies` | Update a policy |
+| `GET` | `/api/demo/scenarios` | List demo scenarios |
 | `POST` | `/api/demo/scenario` | Run a demo scenario |
+| `POST` | `/api/decisions/override` | Human override of a system decision |
 | `GET` | `/api/health` | Health check |
 
 Full interactive docs: http://localhost:8000/api/docs
@@ -187,17 +219,17 @@ Full interactive docs: http://localhost:8000/api/docs
 Navigate to **Demo Center** in the UI, or call the API directly:
 
 ```bash
-# Typosquatting attack
+# Typosquatting attack (requets → CRITICAL / BLOCK)
 curl -X POST http://localhost:8000/api/demo/scenario \
   -H "Content-Type: application/json" \
   -d '{"scenario_id": "typosquatting"}'
 
-# AI hallucination
+# AI hallucination (fast-pdf-renderer → CRITICAL / BLOCK)
 curl -X POST http://localhost:8000/api/demo/scenario \
   -H "Content-Type: application/json" \
   -d '{"scenario_id": "hallucinated"}'
 
-# Trusted package (ALLOW)
+# Trusted package (requests → LOW / ALLOW)
 curl -X POST http://localhost:8000/api/demo/scenario \
   -H "Content-Type: application/json" \
   -d '{"scenario_id": "trusted"}'
@@ -239,39 +271,37 @@ DepPhantom Security Gateway (FastAPI)
 
 ---
 
-## Running Tests
-
-```bash
-cd depphantom
-python -m pytest backend/tests/ -v
-```
-
-Expected: 21 tests pass.
-
----
-
 ## Project Structure
 
 ```
 depphantom/
 ├── backend/
-│   ├── analyzers/          Six analysis modules (run in parallel)
+│   ├── analyzers/          Six analysis modules (run concurrently)
+│   │   ├── registry/       PyPI + npm registry verification
+│   │   ├── typosquatting/  Fuzzy name similarity detection
+│   │   ├── metadata/       Package age, versions, publisher
+│   │   ├── scripts/        Static install script analysis
+│   │   ├── dependencies/   Transitive dependency risk
+│   │   └── intent/         AI intent vs package purpose
 │   ├── api/routes.py       REST API endpoints
-│   ├── risk/engine.py      Weighted risk scoring
+│   ├── risk/engine.py      Explainable weighted risk scoring
 │   ├── services/           Orchestration layer
 │   ├── demo/scenarios/     Pre-built demo fixtures
-│   ├── models.py           Database models
-│   ├── schemas.py          API schemas
+│   ├── models.py           Database ORM models
+│   ├── schemas.py          API request/response schemas
 │   └── main.py             Application entry point
 ├── frontend/src/
 │   ├── pages/              Dashboard, Verify, Events, Policies, Demo
-│   ├── components/         Layout, shared UI
+│   ├── components/         Layout, shared UI components
 │   └── services/api.ts     API client
 ├── submission/             Hackathon submission documents
 ├── startup.py              Backend launch script
 ├── docker-compose.yml      Production deployment
+├── Dockerfile.backend      Backend container
+├── Dockerfile.frontend     Frontend container (nginx)
+├── nginx.conf              nginx reverse proxy config
 ├── .env.example            Environment template
-├── SECURITY.md             Security policy
+├── SECURITY.md             Security policy and threat model
 ├── CONTRIBUTING.md         Development guide
 └── README.md               This file
 ```
@@ -282,11 +312,13 @@ depphantom/
 
 See [SECURITY.md](SECURITY.md) for the full security model, threat model, and responsible disclosure policy.
 
-**Key points**:
+**Key security properties**:
 - DepPhantom never executes untrusted packages
 - All analysis is static (metadata + pattern matching)
-- Fail-closed: registry failures result in REVIEW, not ALLOW
+- **Fail-closed**: registry failures result in REVIEW/BLOCK, never silent ALLOW
+- **Input validation**: package names validated against safe character allowlist; path traversal and shell metacharacters blocked (HTTP 422)
 - No secrets stored in source code
+- CORS configurable per deployment
 
 ---
 
@@ -297,6 +329,7 @@ DepPhantom is a risk detection system. It does not:
 - Detect every malicious package
 - Replace CVE scanning (use Dependabot/Snyk for that)
 - Prevent all supply-chain attacks
+- Perform runtime sandbox analysis
 
 It detects risk signals associated with AI-hallucinated, impersonated, and suspicious packages.
 
