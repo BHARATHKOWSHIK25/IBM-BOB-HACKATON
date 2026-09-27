@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="shieldGrad" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stopColor="#64d8ff"/>
+      <stop offset="0.5" stopColor="#1dafff"/>
+      <stop offset="1" stopColor="#0066ff"/>
+    </linearGradient>
+    <linearGradient id="coreGlow" x1="32" y1="20" x2="32" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stopColor="#ffffff"/>
+      <stop offset="1" stopColor="#00e5ff"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="64" height="64" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded squircle with dark cyber glass -->
+  <rect width="64" height="64" rx="18" fill="#040914"/>
+  <rect width="64" height="64" rx="18" stroke="#1dafff" stroke-opacity="0.4" stroke-width="1.5"/>
+
+  <!-- Cyber Shield -->
+  <path d="M32 8L52 17.5V31.5C52 45 42.5 56.5 32 60.5C21.5 56.5 12 45 12 31.5V17.5L32 8Z" stroke="url(#shieldGrad)" stroke-width="3" stroke-linejoin="round" fill="#08142a"/>
+
+  <!-- Phantom Stealth Core -->
+  <path d="M32 19L44 31.5L32 46.5L20 31.5L32 19Z" stroke="url(#shieldGrad)" stroke-width="2.5" fill="#1dafff" fill-opacity="0.25"/>
+
+  <!-- Glowing Quantum Center Node -->
+  <circle cx="32" cy="31.5" r="4.5" fill="url(#coreGlow)" filter="url(#glow)"/>
+  <circle cx="32" cy="31.5" r="1.8" fill="#002b4d"/>
+
+  <!-- Top / Bottom radar marks -->
+  <line x1="32" y1="12" x2="32" y2="15.5" stroke="#64d8ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="32" y1="49" x2="32" y2="53" stroke="#1dafff" stroke-width="2" stroke-linecap="round"/>
+</svg>
