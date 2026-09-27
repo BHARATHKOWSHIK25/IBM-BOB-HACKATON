@@ -1,0 +1,2 @@
+-r backend/requirements.txt
+asyncpg==0.30.0

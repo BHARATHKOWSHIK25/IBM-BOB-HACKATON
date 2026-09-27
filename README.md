@@ -205,6 +205,26 @@ cp .env.example .env
 
 ---
 
+## Deploy to Vercel
+
+The Vercel configuration deploys the FastAPI backend as a Python Function and builds the Vite frontend into the same deployment. The frontend calls the API through `/api`, so no frontend API URL or cross-origin configuration is needed.
+
+1. Import this repository into Vercel and keep the project root set to the repository root.
+2. Add a managed PostgreSQL database and set these Vercel environment variables for Production (and Preview if needed):
+
+    | Variable | Value |
+    |---|---|
+    | `DATABASE_URL` | `postgresql+asyncpg://...` from your database provider |
+    | `APP_ENV` | `production` |
+    | `DEBUG` | `false` |
+    | `DEMO_MODE` | `true` only when demo scenarios are required |
+
+3. Deploy. Vercel runs `vercel_build.py`, which installs frontend dependencies from the lockfile and builds the frontend; Python routes `/api/*` to FastAPI and serves the frontend for browser routes.
+
+Do not use the default SQLite database for a Vercel deployment: function filesystems are ephemeral, so data can disappear between invocations. Use a persistent PostgreSQL database. The API docs are available at `/api/docs` after deployment.
+
+---
+
 ## How It Works
 
 ### The verification pipeline
