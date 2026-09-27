@@ -308,4 +308,13 @@ class TestInputValidation:
         import pytest
         with pytest.raises(Exception):
             VerifyRequest(package="a" * 300, ecosystem=EcosystemEnum.pypi)
+    def test_package_name_with_spaces_blocked(self):
+        from backend.schemas import VerifyRequest, EcosystemEnum
+        import pytest
+
+        with pytest.raises(Exception):
+            VerifyRequest(
+                package="my package",
+                ecosystem=EcosystemEnum.pypi
+            )      
 
