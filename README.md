@@ -12,7 +12,6 @@
 - [The Solution](#the-solution)
 - [Quick Start](#quick-start)
 - [Environment Configuration](#environment-configuration)
-- [GitHub Deployment](#github-deployment)
 - [How It Works](#how-it-works)
 - [Features In Depth](#features-in-depth)
 - [API Reference](#api-reference)
@@ -55,14 +54,14 @@ The AI agent never knew it invented the name. The package appeared completely le
 
 ### Why existing tools miss this
 
-| Tool | What it does | Gap |
-|---|---|---|
-| Dependabot / Snyk | Scans installed packages for known CVEs | Runs **after** installation — cannot catch novel malicious packages |
-| pip-audit | Audits lock files | Requires the package to already be installed or resolved |
-| SAST tools | Scans existing source code | Does not analyze the installation decision |
-| Dependency confusion detectors | Detects internal vs. public name confusion | Does not address AI-hallucinated names |
+| Tool                           | What it does                               | Gap                                                                 |
+| ------------------------------ | ------------------------------------------ | ------------------------------------------------------------------- |
+| Dependabot / Snyk              | Scans installed packages for known CVEs    | Runs **after** installation — cannot catch novel malicious packages |
+| pip-audit                      | Audits lock files                          | Requires the package to already be installed or resolved            |
+| SAST tools                     | Scans existing source code                 | Does not analyze the installation decision                          |
+| Dependency confusion detectors | Detects internal vs. public name confusion | Does not address AI-hallucinated names                              |
 
-**The security boundary is in the wrong place.** All existing tools operate after the dependency has entered the environment. DepPhantom moves the boundary to *before* installation.
+**The security boundary is in the wrong place.** All existing tools operate after the dependency has entered the environment. DepPhantom moves the boundary to _before_ installation.
 
 ### The typosquatting dimension
 
@@ -120,11 +119,11 @@ cp .env.example .env
 docker-compose up --build
 ```
 
-| URL | Service |
-|---|---|
-| http://localhost | Frontend dashboard |
-| http://localhost/api/docs | Interactive API documentation |
-| http://localhost/api/health | Health check |
+| URL                         | Service                       |
+| --------------------------- | ----------------------------- |
+| http://localhost            | Frontend dashboard            |
+| http://localhost/api/docs   | Interactive API documentation |
+| http://localhost/api/health | Health check                  |
 
 **Deploying to a custom domain:**
 
@@ -136,15 +135,17 @@ CORS_ORIGINS=https://your-domain.com docker-compose up --build -d
 
 ### Option B — Local Development
 
-**Prerequisites**: Python 3.11+, Node.js 18+
+**Prerequisites**: Python 3.12.x (recommended and verified on Windows), Node.js 18+
+
+> Python 3.13 currently fails during native dependency builds for this project on Windows because packages such as `pydantic-core` and `Levenshtein` require Visual C++ toolchain support that is not available in the default environment. Use Python 3.12 for local development and testing.
 
 #### 1. Backend
 
 ```bash
 cd depphantom
 
-# Create virtual environment
-python -m venv .venv
+# Create a virtual environment with Python 3.12
+python3.12 -m venv .venv
 
 # Activate — Linux/macOS:
 source .venv/bin/activate
@@ -190,62 +191,17 @@ Copy `.env.example` to `.env`. For a local demo, no changes are required.
 cp .env.example .env
 ```
 
-| Variable | Default | Description |
-|---|---|---|
-| `APP_ENV` | `development` | `development` or `production` |
-| `DEBUG` | `false` | Enable debug logging — set `false` in production |
-| `DATABASE_URL` | `sqlite+aiosqlite:///./depphantom.db` | SQLite by default; swap to `postgresql+asyncpg://user:pass@host/db` for production |
-| `CORS_ORIGINS` | `http://localhost:5173,...` | Comma-separated allowed frontend origins |
-| `REGISTRY_TIMEOUT` | `10.0` | Registry API timeout in seconds |
-| `TYPOSQUATTING_SIMILARITY_THRESHOLD` | `0.80` | Similarity threshold for typosquatting flag (0.0–1.0) |
-| `NEW_PACKAGE_AGE_DAYS` | `30` | Days threshold to classify a package as "new" |
-| `LOW_DOWNLOAD_THRESHOLD` | `100` | Monthly downloads below this triggers a supporting signal |
-| `DEMO_MODE` | `false` | Enable demo scenarios — does not affect live analysis. Set `true` only for demo deployments |
-
----
-
-## GitHub Deployment
-
-### CI/CD with GitHub Actions
-
-The repository ships two workflows in `.github/workflows/`:
-
-| Workflow | File | Triggers | What it does |
-|---|---|---|---|
-| **CI** | `ci.yml` | Push / PR to `main` | Runs backend tests (Python 3.11 + 3.12), frontend lint + build, Docker image build validation |
-| **Deploy** | `deploy.yml` | Push to `main` or version tag | Builds and pushes `backend` + `frontend` images to GitHub Container Registry (GHCR) |
-
-### Deploy from GHCR images
-
-After the first push to `main`, images are available at:
-
-```
-ghcr.io/<your-github-username>/depphantom-backend:main
-ghcr.io/<your-github-username>/depphantom-frontend:main
-```
-
-#### On any Linux server with Docker
-
-```bash
-# 1. Log in to GHCR (one-time setup)
-echo $GITHUB_TOKEN | docker login ghcr.io -u <your-github-username> --password-stdin
-
-# 2. Pull and run
-CORS_ORIGINS=https://your-domain.com docker compose up -d
-```
-
-#### Tag a release
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-This creates versioned image tags (`v1.0.0`, `1.0`) in addition to `:main`.
-
-### Required permissions
-
-The deploy workflow uses the automatic `GITHUB_TOKEN` — no additional secrets are needed for GHCR publishing. Just make sure the repository's **Packages** visibility is set appropriately (public or private) in your GitHub settings.
+| Variable                             | Default                               | Description                                                                        |
+| ------------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `APP_ENV`                            | `development`                         | `development` or `production`                                                      |
+| `DEBUG`                              | `false`                               | Enable debug logging — set `false` in production                                   |
+| `DATABASE_URL`                       | `sqlite+aiosqlite:///./depphantom.db` | SQLite by default; swap to `postgresql+asyncpg://user:pass@host/db` for production |
+| `CORS_ORIGINS`                       | `http://localhost:5173,...`           | Comma-separated allowed frontend origins                                           |
+| `REGISTRY_TIMEOUT`                   | `10.0`                                | Registry API timeout in seconds                                                    |
+| `TYPOSQUATTING_SIMILARITY_THRESHOLD` | `0.80`                                | Similarity threshold for typosquatting flag (0.0–1.0)                              |
+| `NEW_PACKAGE_AGE_DAYS`               | `30`                                  | Days threshold to classify a package as "new"                                      |
+| `LOW_DOWNLOAD_THRESHOLD`             | `100`                                 | Monthly downloads below this triggers a supporting signal                          |
+| `DEMO_MODE`                          | `true`                                | Enable demo scenarios — does not affect live analysis                              |
 
 ---
 
@@ -291,37 +247,38 @@ POST /api/dependencies/verify
 
 Every signal contributes named points to a 0–100 score. Nothing is a black box.
 
-| Signal | Points | Triggers when |
-|---|---|---|
-| Package not found in registry | +35 | 404 from PyPI or npm |
-| AI hallucination penalty | +15 | Not found AND source is `AI_AGENT` |
-| Registry unreachable | +25 | Timeout / network error (fail-closed) |
-| Near-identical typosquatting | +40 | ≥95% similarity to known package |
-| High typosquatting similarity | +30 | ≥90% similarity |
-| Typosquatting | +20 | ≥80% similarity |
-| Package registered today | +25 | Age < 1 day |
-| Package registered this week | +20 | Age < 7 days |
-| Package new | +10 | Age < 30 days |
-| Install script CRITICAL | +50 | 3+ dangerous patterns |
-| Install script HIGH | +35 | 1–2 dangerous patterns |
-| Install script MEDIUM | +15 | Warning patterns only |
-| Suspicious transitive deps | +20 | Malicious-named dependencies |
-| Intent mismatch | +30 | AI need ≠ package purpose |
-| Intent partial | +10 | Unclear alignment |
-| AI agent multiplier | ×1.1 | Source is `AI_AGENT` and score > 10 |
+| Signal                        | Points | Triggers when                         |
+| ----------------------------- | ------ | ------------------------------------- |
+| Package not found in registry | +35    | 404 from PyPI or npm                  |
+| AI hallucination penalty      | +15    | Not found AND source is `AI_AGENT`    |
+| Registry unreachable          | +25    | Timeout / network error (fail-closed) |
+| Near-identical typosquatting  | +40    | ≥95% similarity to known package      |
+| High typosquatting similarity | +30    | ≥90% similarity                       |
+| Typosquatting                 | +20    | ≥80% similarity                       |
+| Package registered today      | +25    | Age < 1 day                           |
+| Package registered this week  | +20    | Age < 7 days                          |
+| Package new                   | +10    | Age < 30 days                         |
+| Install script CRITICAL       | +50    | 3+ dangerous patterns                 |
+| Install script HIGH           | +35    | 1–2 dangerous patterns                |
+| Install script MEDIUM         | +15    | Warning patterns only                 |
+| Suspicious transitive deps    | +20    | Malicious-named dependencies          |
+| Intent mismatch               | +30    | AI need ≠ package purpose             |
+| Intent partial                | +10    | Unclear alignment                     |
+| AI agent multiplier           | ×1.1   | Source is `AI_AGENT` and score > 10   |
 
-| Score | Risk level | Default decision |
-|---|---|---|
-| 0–24 | **LOW** | ✅ ALLOW |
-| 25–49 | **MEDIUM** | ⚠️ REVIEW |
-| 50–74 | **HIGH** | ⛔ BLOCK |
-| 75–100 | **CRITICAL** | ⛔ BLOCK |
+| Score  | Risk level   | Default decision |
+| ------ | ------------ | ---------------- |
+| 0–24   | **LOW**      | ✅ ALLOW         |
+| 25–49  | **MEDIUM**   | ⚠️ REVIEW        |
+| 50–74  | **HIGH**     | ⛔ BLOCK         |
+| 75–100 | **CRITICAL** | ⛔ BLOCK         |
 
 ---
 
 ## Features In Depth
 
 ### ① Registry Verification
+
 - Real-time lookup against **PyPI** and **npm**
 - Package existence, latest version, full version history
 - Publisher / maintainer names
@@ -332,13 +289,16 @@ Every signal contributes named points to a 0–100 score. Nothing is a black box
 - Distinguishes confirmed 404 (not found) from network failure
 
 ### ② AI Hallucination Detection
+
 - Identifies packages that don't exist in any supported registry
 - AI-sourced requests receive extra risk weight
-- Clear explanation: *"Package does not exist — likely AI-hallucinated"*
+- Clear explanation: _"Package does not exist — likely AI-hallucinated"_
 - Suggests known alternatives based on intent cluster matching
 
 ### ③ Typosquatting Detection
+
 Five similarity metrics combined per comparison:
+
 - `fuzz.ratio` — overall character similarity
 - `fuzz.partial_ratio` — substring similarity
 - Normalized ratio on separator-stripped names
@@ -346,12 +306,14 @@ Five similarity metrics combined per comparison:
 - `JaroWinkler.normalized_similarity` — prefix-biased similarity
 
 Comparison set:
+
 - **100+ well-known PyPI packages** (requests, numpy, django, flask, etc.)
 - **75+ well-known npm packages** (lodash, react, express, axios, etc.)
 
 Returns: top-5 matches with scores, self-match excluded.
 
 ### ④ Package Metadata Analysis
+
 - Package age with configurable "new" threshold (default: 30 days)
 - Version count — very few releases is a signal
 - Download count signal (where available)
@@ -359,51 +321,55 @@ Returns: top-5 matches with scores, self-match excluded.
 - Abandonment detection for very old packages with few versions
 
 ### ⑤ Static Installation Script Analysis
+
 Fetches and scans install-related metadata — **zero code execution**.
 
 Patterns detected:
 
-| Category | What it catches |
-|---|---|
-| Shell execution | `subprocess`, `os.system()`, `os.popen()` |
-| Dynamic execution | `exec()`, `eval()`, `__import__()` |
-| Network during install | `urllib`, `requests.get`, `fetch`, `curl`, `wget` |
-| Credential access | `HOME`, `AWS_`, `SECRET`, `PASSWORD`, `TOKEN`, `API_KEY` |
-| Obfuscation | `base64.b64decode`, `\x` / `\u` hex escapes |
-| File operations | `open(…,'w')`, `shutil`, `os.remove`, `os.makedirs` |
-| Unsafe deserialization | `pickle.loads`, `marshal.loads`, `yaml.load` |
-| SSH key access | `.ssh`, `id_rsa`, `id_ed25519` |
-| Native code | `ctypes`, `cffi`, `struct.unpack` |
+| Category               | What it catches                                          |
+| ---------------------- | -------------------------------------------------------- |
+| Shell execution        | `subprocess`, `os.system()`, `os.popen()`                |
+| Dynamic execution      | `exec()`, `eval()`, `__import__()`                       |
+| Network during install | `urllib`, `requests.get`, `fetch`, `curl`, `wget`        |
+| Credential access      | `HOME`, `AWS_`, `SECRET`, `PASSWORD`, `TOKEN`, `API_KEY` |
+| Obfuscation            | `base64.b64decode`, `\x` / `\u` hex escapes              |
+| File operations        | `open(…,'w')`, `shutil`, `os.remove`, `os.makedirs`      |
+| Unsafe deserialization | `pickle.loads`, `marshal.loads`, `yaml.load`             |
+| SSH key access         | `.ssh`, `id_rsa`, `id_ed25519`                           |
+| Native code            | `ctypes`, `cffi`, `struct.unpack`                        |
 
 Risk levels: `LOW` → `MEDIUM` → `HIGH` → `CRITICAL`
 
 ### ⑥ Dependency Graph Analysis
+
 - Fetches declared dependencies from PyPI (`requires_dist`) and npm
 - Pattern-matches dependency names against suspicious terms
 - Flags packages with >50 dependencies (unusual for most tools)
 - Reports names containing: `miner`, `backdoor`, `rootkit`, `keylogger`, `hack`, `exploit`
 
 ### ⑦ AI Intent Verification
+
 12 intent clusters with known-package matching:
 
-| Cluster | Example AI reason | Known packages |
-|---|---|---|
-| `http` | "HTTP client for REST API calls" | requests, httpx, axios, got |
-| `pdf` | "Generate PDF reports" | reportlab, fpdf2, pdf-lib, jspdf |
-| `database` | "Store data in SQL database" | sqlalchemy, pymongo, prisma |
-| `auth` | "JWT authentication" | pyjwt, authlib, jsonwebtoken |
-| `image` | "Resize uploaded photos" | pillow, sharp, canvas |
-| `crypto` | "Encrypt sensitive data" | cryptography, bcrypt, node-forge |
-| `test` | "Write unit tests" | pytest, jest, vitest, mocha |
-| `cli` | "Build a command-line tool" | click, typer, commander, yargs |
-| `data` | "Parse CSV files" | pandas, numpy, papaparse, xlsx |
-| `logging` | "Structured logging" | loguru, winston, pino |
-| `email` | "Send email notifications" | sendgrid, nodemailer |
-| `date` | "Handle timezone conversion" | arrow, dayjs, date-fns, pendulum |
+| Cluster    | Example AI reason                | Known packages                   |
+| ---------- | -------------------------------- | -------------------------------- |
+| `http`     | "HTTP client for REST API calls" | requests, httpx, axios, got      |
+| `pdf`      | "Generate PDF reports"           | reportlab, fpdf2, pdf-lib, jspdf |
+| `database` | "Store data in SQL database"     | sqlalchemy, pymongo, prisma      |
+| `auth`     | "JWT authentication"             | pyjwt, authlib, jsonwebtoken     |
+| `image`    | "Resize uploaded photos"         | pillow, sharp, canvas            |
+| `crypto`   | "Encrypt sensitive data"         | cryptography, bcrypt, node-forge |
+| `test`     | "Write unit tests"               | pytest, jest, vitest, mocha      |
+| `cli`      | "Build a command-line tool"      | click, typer, commander, yargs   |
+| `data`     | "Parse CSV files"                | pandas, numpy, papaparse, xlsx   |
+| `logging`  | "Structured logging"             | loguru, winston, pino            |
+| `email`    | "Send email notifications"       | sendgrid, nodemailer             |
+| `date`     | "Handle timezone conversion"     | arrow, dayjs, date-fns, pendulum |
 
 When AI says "HTTP client" but the package is named `crypto-miner-helper` — that's a `MISMATCH` signal (+30 points).
 
 ### ⑧ Explainable Risk Engine
+
 - Named weighted signals — every point is traceable to a specific finding
 - Human-readable explanation for every decision
 - Confidence score (0.0–1.0) based on number of signals fired
@@ -411,13 +377,16 @@ When AI says "HTTP client" but the package is named `crypto-miner-helper` — th
 - No magic numbers exposed to users — every reason is readable prose
 
 ### ⑨ ALLOW / REVIEW / BLOCK Decision Engine
+
 - 7 configurable policies via the web UI, persisted to database
 - Default policies: BLOCK for HIGH/CRITICAL, REVIEW for MEDIUM, ALLOW for LOW
 - Human override with full audit trail (user, timestamp, reason recorded)
 - Fail-closed: when analysis cannot complete → REVIEW, never ALLOW
 
 ### ⑩ Security Dashboard
+
 Live statistics from the database (never hardcoded):
+
 - Protected installations (total verifications)
 - Blocked dependencies
 - Review required
@@ -426,33 +395,36 @@ Live statistics from the database (never hardcoded):
 - Recent security events table
 
 ### ⑪ Security Event Log
+
 - All verifications, demo runs, and human overrides recorded
 - Filterable by: risk level, decision, ecosystem, package name
 - Paginated with limit/offset
 - Full timestamp, source, and user attribution
 
 ### ⑫ Policy Configuration
+
 Configurable through the web UI:
 
-| Policy | Options | Default |
-|---|---|---|
-| Unknown package (not found in registry) | BLOCK / REVIEW | BLOCK |
-| New package (< 30 days old) | REVIEW / BLOCK / ALLOW | REVIEW |
-| Typosquatting detected | BLOCK / REVIEW | BLOCK |
-| High-risk install script | BLOCK / REVIEW | BLOCK |
-| Intent mismatch | REVIEW / BLOCK | REVIEW |
-| AI agent scrutiny multiplier | enabled / disabled | enabled |
-| Fail-closed behavior | enabled / disabled | enabled |
+| Policy                                  | Options                | Default |
+| --------------------------------------- | ---------------------- | ------- |
+| Unknown package (not found in registry) | BLOCK / REVIEW         | BLOCK   |
+| New package (< 30 days old)             | REVIEW / BLOCK / ALLOW | REVIEW  |
+| Typosquatting detected                  | BLOCK / REVIEW         | BLOCK   |
+| High-risk install script                | BLOCK / REVIEW         | BLOCK   |
+| Intent mismatch                         | REVIEW / BLOCK         | REVIEW  |
+| AI agent scrutiny multiplier            | enabled / disabled     | enabled |
+| Fail-closed behavior                    | enabled / disabled     | enabled |
 
 ### ⑬ Demo Center
+
 Four deterministic pre-computed scenarios for reliable demonstration:
 
-| Scenario | Package | Expected | Demonstrates |
-|---|---|---|---|
-| AI Hallucination | `fast-pdf-renderer` | `CRITICAL / BLOCK` | Package doesn't exist |
-| Typosquatting Attack | `requets` | `CRITICAL / BLOCK` | 95% similar to `requests` |
-| Malicious Install Script | `crypto-utils-pro` | `CRITICAL / BLOCK` | Dangerous postinstall behavior |
-| Trusted Package | `requests` | `LOW / ALLOW` | Product doesn't over-block |
+| Scenario                 | Package             | Expected           | Demonstrates                   |
+| ------------------------ | ------------------- | ------------------ | ------------------------------ |
+| AI Hallucination         | `fast-pdf-renderer` | `CRITICAL / BLOCK` | Package doesn't exist          |
+| Typosquatting Attack     | `requets`           | `CRITICAL / BLOCK` | 95% similar to `requests`      |
+| Malicious Install Script | `crypto-utils-pro`  | `CRITICAL / BLOCK` | Dangerous postinstall behavior |
+| Trusted Package          | `requests`          | `LOW / ALLOW`      | Product doesn't over-block     |
 
 All demo results are clearly labeled `[DEMO DATA]` in the UI — never mixed with live analysis.
 
@@ -476,13 +448,13 @@ curl -X POST http://localhost:8000/api/dependencies/verify \
 
 #### Request fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `package` | `string` | ✅ | Package name — only `[a-zA-Z0-9._-]` allowed |
-| `ecosystem` | `"pypi"` or `"npm"` | ✅ | Package registry |
-| `version` | `string` | — | Specific version or `"latest"` |
-| `reason` | `string` | — | AI-stated reason — used in intent analysis |
-| `source` | `"AI_AGENT"` / `"MANUAL"` / `"CI_CD"` | — | Who requested the dependency |
+| Field       | Type                                  | Required | Description                                  |
+| ----------- | ------------------------------------- | -------- | -------------------------------------------- |
+| `package`   | `string`                              | ✅       | Package name — only `[a-zA-Z0-9._-]` allowed |
+| `ecosystem` | `"pypi"` or `"npm"`                   | ✅       | Package registry                             |
+| `version`   | `string`                              | —        | Specific version or `"latest"`               |
+| `reason`    | `string`                              | —        | AI-stated reason — used in intent analysis   |
+| `source`    | `"AI_AGENT"` / `"MANUAL"` / `"CI_CD"` | —        | Who requested the dependency                 |
 
 #### Response (abbreviated)
 
@@ -504,21 +476,47 @@ curl -X POST http://localhost:8000/api/dependencies/verify \
     "Installation script contains dangerous patterns."
   ],
   "pipeline_steps": [
-    { "name": "Registry Check",    "status": "OK",      "description": "Package found in registry." },
-    { "name": "Typosquatting",     "status": "DANGER",  "description": "Resembles 'requests' (95%)" },
-    { "name": "Publisher Analysis","status": "WARNING", "description": "Publisher: unknown-user-4872" },
-    { "name": "Package Metadata",  "status": "DANGER",  "description": "Package age: 5 days." },
-    { "name": "Install Script",    "status": "DANGER",  "description": "Script risk: HIGH." },
-    { "name": "Intent Analysis",   "status": "DANGER",  "description": "MISMATCH — likely impersonation of 'requests'" },
-    { "name": "Dependency Graph",  "status": "OK",      "description": "Dependency risk: LOW." }
+    {
+      "name": "Registry Check",
+      "status": "OK",
+      "description": "Package found in registry."
+    },
+    {
+      "name": "Typosquatting",
+      "status": "DANGER",
+      "description": "Resembles 'requests' (95%)"
+    },
+    {
+      "name": "Publisher Analysis",
+      "status": "WARNING",
+      "description": "Publisher: unknown-user-4872"
+    },
+    {
+      "name": "Package Metadata",
+      "status": "DANGER",
+      "description": "Package age: 5 days."
+    },
+    {
+      "name": "Install Script",
+      "status": "DANGER",
+      "description": "Script risk: HIGH."
+    },
+    {
+      "name": "Intent Analysis",
+      "status": "DANGER",
+      "description": "MISMATCH — likely impersonation of 'requests'"
+    },
+    {
+      "name": "Dependency Graph",
+      "status": "OK",
+      "description": "Dependency risk: LOW."
+    }
   ],
   "typosquat": {
     "is_suspicious": true,
     "closest_match": "requests",
     "similarity_score": 0.95,
-    "all_matches": [
-      { "package": "requests", "score": 0.95 }
-    ]
+    "all_matches": [{ "package": "requests", "score": 0.95 }]
   },
   "registry": {
     "exists": true,
@@ -534,7 +532,10 @@ curl -X POST http://localhost:8000/api/dependencies/verify \
   },
   "script_risk": {
     "risk_level": "HIGH",
-    "findings": ["Shell subprocess execution detected", "Network access during installation"]
+    "findings": [
+      "Shell subprocess execution detected",
+      "Network access during installation"
+    ]
   },
   "intent": {
     "match_level": "MISMATCH",
@@ -546,29 +547,29 @@ curl -X POST http://localhost:8000/api/dependencies/verify \
 
 ### All Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/dependencies/verify` | **Main endpoint** — verify a dependency before installation |
-| `GET` | `/api/dependencies/{id}` | Retrieve a previous verification result by ID |
-| `GET` | `/api/dashboard` | Dashboard statistics (live from database) |
-| `GET` | `/api/events` | Security event audit log with filtering |
-| `GET` | `/api/policies` | Current policy configuration |
-| `PUT` | `/api/policies` | Update a policy value |
-| `GET` | `/api/demo/scenarios` | List available demo scenarios |
-| `POST` | `/api/demo/scenario` | Run a pre-built demo scenario |
-| `POST` | `/api/decisions/override` | Human override of a system decision (audited) |
-| `GET` | `/api/health` | `{"status":"healthy","service":"DepPhantom","database":"ok"}` |
+| Method | Endpoint                   | Description                                                   |
+| ------ | -------------------------- | ------------------------------------------------------------- |
+| `POST` | `/api/dependencies/verify` | **Main endpoint** — verify a dependency before installation   |
+| `GET`  | `/api/dependencies/{id}`   | Retrieve a previous verification result by ID                 |
+| `GET`  | `/api/dashboard`           | Dashboard statistics (live from database)                     |
+| `GET`  | `/api/events`              | Security event audit log with filtering                       |
+| `GET`  | `/api/policies`            | Current policy configuration                                  |
+| `PUT`  | `/api/policies`            | Update a policy value                                         |
+| `GET`  | `/api/demo/scenarios`      | List available demo scenarios                                 |
+| `POST` | `/api/demo/scenario`       | Run a pre-built demo scenario                                 |
+| `POST` | `/api/decisions/override`  | Human override of a system decision (audited)                 |
+| `GET`  | `/api/health`              | `{"status":"healthy","service":"DepPhantom","database":"ok"}` |
 
 **Event log filters** (`GET /api/events`):
 
-| Parameter | Description |
-|---|---|
-| `limit` (1–200) | Events to return (default: 50) |
-| `offset` | Pagination offset |
-| `risk` | Filter: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
-| `decision` | Filter: `ALLOW`, `REVIEW`, `BLOCK` |
-| `ecosystem` | Filter: `pypi`, `npm` |
-| `package` | Substring search on package name |
+| Parameter       | Description                                 |
+| --------------- | ------------------------------------------- |
+| `limit` (1–200) | Events to return (default: 50)              |
+| `offset`        | Pagination offset                           |
+| `risk`          | Filter: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `decision`      | Filter: `ALLOW`, `REVIEW`, `BLOCK`          |
+| `ecosystem`     | Filter: `pypi`, `npm`                       |
+| `package`       | Substring search on package name            |
 
 Full interactive docs: http://localhost:8000/api/docs
 
@@ -767,18 +768,22 @@ cd depphantom
 python -m pytest backend/tests/ -v
 ```
 
+## Contributors
+
+- Your Name — Contributor
+
 **28 tests — all pass.**
 
-| Test class | What it tests |
-|---|---|
+| Test class                  | What it tests                                                             |
+| --------------------------- | ------------------------------------------------------------------------- |
 | `TestTyposquattingDetector` | `requets`→`requests`, `loadsh`→`lodash`, no false positives on `requests` |
-| `TestRiskEngine` | Non-existent package → HIGH/CRITICAL, trusted package → LOW |
-| `TestDecisionEngine` | LOW→ALLOW, MEDIUM→REVIEW, HIGH→BLOCK, CRITICAL→BLOCK |
-| `TestIntentAnalyzer` | HTTP intent matches requests; suspicious name produces mismatch |
-| `TestMetadataAnalyzer` | New packages flagged DANGER; old packages get OK signal |
-| `TestDemoScenarios` | All 4 scenarios have correct risk level and decision |
-| `TestRegistryFailClosed` | Registry error → never produces ALLOW; risk elevated to MEDIUM+ |
-| `TestInputValidation` | Path traversal (`../etc/passwd`) → 422; shell metacharacters → 422 |
+| `TestRiskEngine`            | Non-existent package → HIGH/CRITICAL, trusted package → LOW               |
+| `TestDecisionEngine`        | LOW→ALLOW, MEDIUM→REVIEW, HIGH→BLOCK, CRITICAL→BLOCK                      |
+| `TestIntentAnalyzer`        | HTTP intent matches requests; suspicious name produces mismatch           |
+| `TestMetadataAnalyzer`      | New packages flagged DANGER; old packages get OK signal                   |
+| `TestDemoScenarios`         | All 4 scenarios have correct risk level and decision                      |
+| `TestRegistryFailClosed`    | Registry error → never produces ALLOW; risk elevated to MEDIUM+           |
+| `TestInputValidation`       | Path traversal (`../etc/passwd`) → 422; shell metacharacters → 422        |
 
 ---
 
@@ -788,30 +793,30 @@ See [SECURITY.md](SECURITY.md) for the complete security model, threat model, an
 
 ### Security properties
 
-| Property | Implementation |
-|---|---|
-| **No package execution** | All analysis is static — registry metadata and pattern matching only |
-| **Fail-closed** | Network errors raise risk, never produce silent ALLOW. `registry_error` flag distinguishes unavailability from confirmed 404 |
-| **Input validation** | Package names validated against `[a-zA-Z0-9._-]` allowlist. Path traversal (`../`), shell metacharacters (`;`, `\|`, `&`, `$`, backtick), and empty names → HTTP 422 |
-| **No secrets in code** | All configuration via environment variables; `.env` is gitignored |
-| **CORS controlled** | Configurable per deployment via `CORS_ORIGINS` environment variable |
-| **Non-root container** | Docker backend runs as dedicated `depphantom` user |
-| **Audit everything** | Every decision and human override is logged with evidence |
-| **Error sanitization** | Global exception handler prevents stack traces / internal details leaking in 500 errors |
+| Property                 | Implementation                                                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No package execution** | All analysis is static — registry metadata and pattern matching only                                                                                                 |
+| **Fail-closed**          | Network errors raise risk, never produce silent ALLOW. `registry_error` flag distinguishes unavailability from confirmed 404                                         |
+| **Input validation**     | Package names validated against `[a-zA-Z0-9._-]` allowlist. Path traversal (`../`), shell metacharacters (`;`, `\|`, `&`, `$`, backtick), and empty names → HTTP 422 |
+| **No secrets in code**   | All configuration via environment variables; `.env` is gitignored                                                                                                    |
+| **CORS controlled**      | Configurable per deployment via `CORS_ORIGINS` environment variable                                                                                                  |
+| **Non-root container**   | Docker backend runs as dedicated `depphantom` user                                                                                                                   |
+| **Audit everything**     | Every decision and human override is logged with evidence                                                                                                            |
+| **Error sanitization**   | Global exception handler prevents stack traces / internal details leaking in 500 errors                                                                              |
 
 ### Threat model
 
-| Threat | Status |
-|---|---|
-| AI-hallucinated non-existent package | ✅ Detected by registry check |
-| Typosquatting / name impersonation | ✅ Detected by fuzzy similarity |
-| Newly registered suspicious package | ✅ Detected by age metadata |
-| Malicious install scripts | ✅ Detected by static pattern analysis |
-| Suspicious transitive dependencies | ✅ Detected by dep graph analysis |
-| AI intent mismatch | ✅ Detected by keyword clustering |
-| Known CVEs in legitimate packages | ❌ Not a CVE scanner — use Dependabot/Snyk |
-| Compromised trusted packages | ❌ No runtime analysis |
-| Zero-signal novel malware | ❌ Cannot detect unknown unknowns |
+| Threat                               | Status                                     |
+| ------------------------------------ | ------------------------------------------ |
+| AI-hallucinated non-existent package | ✅ Detected by registry check              |
+| Typosquatting / name impersonation   | ✅ Detected by fuzzy similarity            |
+| Newly registered suspicious package  | ✅ Detected by age metadata                |
+| Malicious install scripts            | ✅ Detected by static pattern analysis     |
+| Suspicious transitive dependencies   | ✅ Detected by dep graph analysis          |
+| AI intent mismatch                   | ✅ Detected by keyword clustering          |
+| Known CVEs in legitimate packages    | ❌ Not a CVE scanner — use Dependabot/Snyk |
+| Compromised trusted packages         | ❌ No runtime analysis                     |
+| Zero-signal novel malware            | ❌ Cannot detect unknown unknowns          |
 
 ---
 
@@ -819,41 +824,41 @@ See [SECURITY.md](SECURITY.md) for the complete security model, threat model, an
 
 ### Frontend
 
-| Technology | Version | Purpose |
-|---|---|---|
-| React | 19.x | UI framework |
-| TypeScript | 5.x | Type safety |
-| Vite | 8.x | Build tool and dev server |
-| React Router DOM | 7.x | Client-side routing |
-| Axios | 1.x | HTTP client (API calls) |
-| Lucide React | Latest | Icons |
-| date-fns | Latest | Date formatting |
+| Technology       | Version | Purpose                   |
+| ---------------- | ------- | ------------------------- |
+| React            | 19.x    | UI framework              |
+| TypeScript       | 5.x     | Type safety               |
+| Vite             | 8.x     | Build tool and dev server |
+| React Router DOM | 7.x     | Client-side routing       |
+| Axios            | 1.x     | HTTP client (API calls)   |
+| Lucide React     | Latest  | Icons                     |
+| date-fns         | Latest  | Date formatting           |
 
 ### Backend
 
-| Technology | Version | Purpose |
-|---|---|---|
-| Python | 3.11+ | Runtime |
-| FastAPI | 0.111+ | REST API framework |
-| Uvicorn | 0.29+ | ASGI server |
-| SQLAlchemy (async) | 2.0+ | ORM |
-| aiosqlite | 0.20+ | Async SQLite driver |
-| Pydantic v2 | 2.7+ | Validation and serialization |
-| pydantic-settings | 2.x | Environment configuration |
-| httpx | 0.27+ | Async HTTP for registry API calls |
-| rapidfuzz | 3.x | Multi-metric fuzzy string matching |
-| Levenshtein | 0.25+ | Edit distance algorithms |
-| python-dateutil | 2.9+ | Date parsing from registry metadata |
+| Technology         | Version | Purpose                             |
+| ------------------ | ------- | ----------------------------------- |
+| Python             | 3.11+   | Runtime                             |
+| FastAPI            | 0.111+  | REST API framework                  |
+| Uvicorn            | 0.29+   | ASGI server                         |
+| SQLAlchemy (async) | 2.0+    | ORM                                 |
+| aiosqlite          | 0.20+   | Async SQLite driver                 |
+| Pydantic v2        | 2.7+    | Validation and serialization        |
+| pydantic-settings  | 2.x     | Environment configuration           |
+| httpx              | 0.27+   | Async HTTP for registry API calls   |
+| rapidfuzz          | 3.x     | Multi-metric fuzzy string matching  |
+| Levenshtein        | 0.25+   | Edit distance algorithms            |
+| python-dateutil    | 2.9+    | Date parsing from registry metadata |
 
 ### Infrastructure
 
-| Technology | Purpose |
-|---|---|
-| Docker | Container images for backend and frontend |
-| docker-compose | Multi-container orchestration |
-| nginx | Frontend static serving + API reverse proxy |
-| SQLite (default) | Zero-config database for development and single-instance deployment |
-| PostgreSQL (optional) | Production multi-instance — change `DATABASE_URL` |
+| Technology            | Purpose                                                             |
+| --------------------- | ------------------------------------------------------------------- |
+| Docker                | Container images for backend and frontend                           |
+| docker-compose        | Multi-container orchestration                                       |
+| nginx                 | Frontend static serving + API reverse proxy                         |
+| SQLite (default)      | Zero-config database for development and single-instance deployment |
+| PostgreSQL (optional) | Production multi-instance — change `DATABASE_URL`                   |
 
 ---
 
@@ -893,4 +898,4 @@ See [submission/FUTURE_SCOPE.md](submission/FUTURE_SCOPE.md) for the full roadma
 
 ---
 
-*Built for the IBM Bob 2.0 Hackathon*
+_Built for the IBM Bob 2.0 Hackathon_

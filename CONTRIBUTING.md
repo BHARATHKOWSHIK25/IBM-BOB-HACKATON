@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to DepPhantom.
 
+## Contributors
+
+- Your Name — Contributor
+
 ## Development Setup
 
 ### Backend
