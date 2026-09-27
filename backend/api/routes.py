@@ -201,7 +201,6 @@ async def run_demo_scenario(body: dict, db: AsyncSession = Depends(get_db)):
         details={"scenario_id": scenario_id, "is_demo": True},
     )
     db.add(audit)
-    await db.commit()
 
     # Build pipeline_steps from scenario data
     registry = scenario.get("registry", {})
@@ -209,6 +208,35 @@ async def run_demo_scenario(body: dict, db: AsyncSession = Depends(get_db)):
     script_risk = scenario.get("script_risk", {})
     dep_risk = scenario.get("dependency_risk", {})
     intent = scenario.get("intent", {})
+    metadata = scenario.get("metadata", {})
+
+    analysis = PackageAnalysis(
+        dependency_request_id=dep_req.id,
+        exists=registry.get("exists", False),
+        package_age_days=metadata.get("package_age_days"),
+        publisher=registry.get("publisher"),
+        version_count=metadata.get("version_count"),
+        download_count=registry.get("download_count"),
+        similarity_score=(
+            typosquat.get("similarity_score") if typosquat.get("is_suspicious") else None
+        ),
+        closest_package=typosquat.get("closest_match"),
+        install_script_risk=script_risk.get("risk_level", "UNKNOWN"),
+        dependency_risk=dep_risk.get("risk_level", "UNKNOWN"),
+        intent_match=intent.get("match_level", "UNKNOWN"),
+        overall_risk=scenario["overall_risk"].upper(),
+        confidence=scenario.get("confidence", 0),
+        raw_signals={"reasons": scenario.get("reasons", []), "is_demo": True},
+        explanation=scenario.get("explanation", ""),
+    )
+    db.add(analysis)
+    await db.flush()
+    db.add(Decision(
+        analysis_id=analysis.id,
+        decision=scenario["decision"].upper(),
+        user="demo",
+        is_override=False,
+    ))
 
     pipeline_steps = [
         {
@@ -283,6 +311,8 @@ async def run_demo_scenario(body: dict, db: AsyncSession = Depends(get_db)):
             ),
         },
     ]
+
+    await db.commit()
 
     # Build AnalysisResponse-compatible flat structure
     return {
