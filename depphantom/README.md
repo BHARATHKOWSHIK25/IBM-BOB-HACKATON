@@ -768,6 +768,10 @@ cd depphantom
 python -m pytest backend/tests/ -v
 ```
 
+## Contributors
+
+- Your Name — Contributor
+
 **28 tests — all pass.**
 
 | Test class                  | What it tests                                                             |

@@ -2,13 +2,13 @@
 
 ### 🤖 AI Supply-Chain Security for Autonomous Coding Agents
 
-> **🚨 Don't let AI invent your next supply-chain attack.**
+> **🚨 Stop AI-generated dependencies before they become a security incident.**
 
 [![Status](https://img.shields.io/badge/status-deployment--ready-success)](#-project-status) [![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-success)](#-testing) [![npm Audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-success)](#-security) [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](#-technology-stack) [![React](https://img.shields.io/badge/react-19-61DAFB)](#-technology-stack) [![FastAPI](https://img.shields.io/badge/FastAPI-REST%20API-009688)](#-technology-stack) [![Docker](https://img.shields.io/badge/docker-supported-2496ED)](#-deployment) [![License](https://img.shields.io/badge/license-MIT-blue)](#-license)
 
-> **🛡️ DepPhantom is a pre-installation security gate for autonomous coding agents.**
+> **🛡️ DepPhantom acts as a pre-installation security gate for AI-powered development workflows.**
 
-It analyzes **AI-generated dependency requests before they enter a development environment**, detecting:
+DepPhantom analyzes dependency requests before they reach the environment, helping teams catch:
 
 * 🤖 AI-hallucinated packages
 * 🎭 Typosquatting and package impersonation
@@ -22,9 +22,11 @@ Instead of asking only:
 
 > ❓ **"Is this package vulnerable?"**
 
-DepPhantom asks:
+DepPhantom asks the more important question:
 
-> 🛡️ **"Should this AI-generated dependency be trusted and allowed into the environment in the first place?"**
+> 🛡️ **"Should this AI-generated dependency be trusted before it enters the system?"**
+
+This project is designed for developers, security teams, and AI-assisted engineering workflows that want to prevent supply-chain risk before installation happens.
 
 ---
 
@@ -1363,6 +1365,11 @@ Future versions can introduce isolated dynamic analysis for deeper behavioral in
 # 🤝 Contributing
 
 Contributions are welcome.
+
+## Contributors
+
+- Your Name — Contributor
+- Project Maintainers — Review and support
 
 Before opening a pull request:
 
