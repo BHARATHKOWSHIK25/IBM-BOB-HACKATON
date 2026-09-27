@@ -66,6 +66,12 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
             "Package was requested by an AI agent and does not exist — likely hallucinated.",
             "Known alternatives for PDF generation: reportlab, fpdf2, weasyprint.",
         ],
+        "explanation": (
+            "DepPhantom classified 'fast-pdf-renderer' as CRITICAL risk (score: 90/100). "
+            "The package does not exist in any registry. This is a strong indicator of "
+            "AI hallucination. Installation has been blocked. Consider using: "
+            "reportlab, fpdf2, or weasyprint for PDF generation."
+        ),
     },
 
     "typosquatting": {
@@ -161,6 +167,12 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
             "Installation script attempts network access and subprocess execution.",
             "Package is not the expected package for HTTP client functionality.",
         ],
+        "explanation": (
+            "DepPhantom classified 'requets' as CRITICAL risk (score: 97/100). "
+            "Primary concerns: near-identical name to trusted package 'requests' (94% similarity), "
+            "package registered only 5 days ago, installation script contains dangerous patterns. "
+            "This is a classic typosquatting attack targeting AI-generated dependency requests."
+        ),
     },
 
     "suspicious_existing": {
@@ -255,6 +267,13 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
             "Base64-encoded content suggests obfuscation.",
             "Package is only 12 days old with limited adoption.",
         ],
+        "explanation": (
+            "DepPhantom classified 'crypto-utils-pro' as CRITICAL risk (score: 95/100). "
+            "The package exists in the npm registry but contains highly suspicious installation behavior. "
+            "The postinstall script executes shell commands, makes network requests, and accesses "
+            "credential environment variables. Base64-encoded content indicates possible obfuscation. "
+            "Installation has been blocked."
+        ),
     },
 
     "trusted": {
@@ -335,6 +354,12 @@ DEMO_SCENARIOS: Dict[str, Dict[str, Any]] = {
             "No suspicious installation scripts.",
             "Matches AI-stated intent for HTTP client functionality.",
         ],
+        "explanation": (
+            "DepPhantom classified 'requests' as LOW risk (score: 2/100). "
+            "The package is a well-established library with 14+ years of active maintenance, "
+            "285M+ monthly downloads, 3 known maintainers, and no suspicious installation patterns. "
+            "Package identity and AI intent are aligned. Installation is approved."
+        ),
     },
 }
 

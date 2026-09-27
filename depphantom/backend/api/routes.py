@@ -174,7 +174,7 @@ async def run_demo_scenario(body: dict, db: AsyncSession = Depends(get_db)):
     if not scenario_id:
         raise HTTPException(status_code=400, detail="scenario_id required")
 
-    from ..demo.scenarios.presets import get_demo_scenario, DEMO_SCENARIOS
+    from ..demo.scenarios.presets import get_demo_scenario
     scenario = get_demo_scenario(scenario_id)
     if not scenario:
         raise HTTPException(status_code=404, detail=f"Unknown scenario: {scenario_id}")
@@ -203,13 +203,114 @@ async def run_demo_scenario(body: dict, db: AsyncSession = Depends(get_db)):
     db.add(audit)
     await db.commit()
 
-    # Build response from pre-computed data
+    # Build pipeline_steps from scenario data
+    registry = scenario.get("registry", {})
+    typosquat = scenario.get("typosquat", {})
+    script_risk = scenario.get("script_risk", {})
+    dep_risk = scenario.get("dependency_risk", {})
+    intent = scenario.get("intent", {})
+
+    pipeline_steps = [
+        {
+            "name": "Registry Check",
+            "status": "OK" if registry.get("exists") else "DANGER",
+            "value": registry.get("exists"),
+            "description": "Package found in registry." if registry.get("exists")
+                           else "Package NOT found in registry.",
+        },
+        {
+            "name": "Typosquatting",
+            "status": "DANGER" if typosquat.get("is_suspicious") else "OK",
+            "value": typosquat.get("closest_match"),
+            "description": (
+                f"Resembles '{typosquat.get('closest_match')}' "
+                f"({int(typosquat.get('similarity_score', 0) * 100)}%)"
+                if typosquat.get("is_suspicious") else "No typosquatting detected."
+            ),
+        },
+        {
+            "name": "Publisher Analysis",
+            "status": "WARNING" if not registry.get("publisher") else "OK",
+            "value": registry.get("publisher"),
+            "description": f"Publisher: {registry.get('publisher')}" if registry.get("publisher")
+                           else "No publisher information.",
+        },
+        {
+            "name": "Package Metadata",
+            "status": "DANGER" if scenario.get("metadata", {}).get("is_new") else "OK",
+            "value": f"{scenario.get('metadata', {}).get('package_age_days')} days"
+                     if scenario.get("metadata", {}).get("package_age_days") is not None else "N/A",
+            "description": (
+                f"Package age: {scenario.get('metadata', {}).get('package_age_days')} days."
+                if scenario.get("metadata", {}).get("package_age_days") is not None else "Age unknown."
+            ),
+        },
+        {
+            "name": "Install Script",
+            "status": (
+                "DANGER" if script_risk.get("risk_level") in ("CRITICAL", "HIGH")
+                else "WARNING" if script_risk.get("risk_level") == "MEDIUM"
+                else "OK" if script_risk.get("risk_level") == "LOW" else "UNKNOWN"
+            ),
+            "value": script_risk.get("risk_level"),
+            "description": (
+                f"Script risk: {script_risk.get('risk_level')}. "
+                + (script_risk.get("findings", [""])[0] if script_risk.get("findings") else "")
+            ),
+        },
+        {
+            "name": "Intent Analysis",
+            "status": (
+                "DANGER" if intent.get("match_level") == "MISMATCH"
+                else "WARNING" if intent.get("match_level") == "PARTIAL"
+                else "OK" if intent.get("match_level") == "MATCH" else "UNKNOWN"
+            ),
+            "value": intent.get("match_level"),
+            "description": (intent.get("explanation") or "")[:120],
+        },
+        {
+            "name": "Dependency Graph",
+            "status": (
+                "DANGER" if dep_risk.get("risk_level") == "HIGH"
+                else "WARNING" if dep_risk.get("risk_level") == "MEDIUM"
+                else "OK"
+            ),
+            "value": dep_risk.get("risk_level"),
+            "description": (
+                f"Dependency risk: {dep_risk.get('risk_level')}. "
+                + (f"Suspicious: {', '.join(dep_risk.get('suspicious_deps', [])[:2])}"
+                   if dep_risk.get("suspicious_deps") else "No suspicious dependencies.")
+            ),
+        },
+    ]
+
+    # Build AnalysisResponse-compatible flat structure
     return {
-        **scenario,
-        "is_demo": True,
+        # Top-level fields matching AnalysisResponse
         "request_id": dep_req.id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "analysis_id": None,
+        "package": req_data["package"],
+        "ecosystem": req_data["ecosystem"],
+        "version": req_data.get("version", "latest"),
+        "source": req_data.get("source", "AI_AGENT"),
+        # Component results
+        "registry": registry,
+        "typosquat": typosquat,
+        "metadata": scenario.get("metadata", {}),
+        "script_risk": script_risk,
+        "dependency_risk": dep_risk,
+        "intent": intent,
+        # Final verdict
+        "overall_risk": scenario["overall_risk"].lower(),
+        "confidence": scenario["confidence"],
+        "decision": scenario["decision"].lower(),
+        "reasons": scenario.get("reasons", []),
+        "explanation": scenario.get("explanation", ""),
+        "pipeline_steps": pipeline_steps,
+        # Demo metadata
+        "is_demo": True,
         "demo_label": "[DEMO DATA — Simulated for demonstration purposes]",
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 

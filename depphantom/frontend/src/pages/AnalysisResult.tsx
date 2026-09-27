@@ -12,7 +12,7 @@ export default function AnalysisResult() {
   const navigate = useNavigate()
   const location = useLocation()
   const [result, setResult] = useState<AnalysisResponse | null>(null)
-  const [_loading] = useState(false)
+  const [loading] = useState(false)
 
   useEffect(() => {
     // Read result from navigate() state (set by VerifyDependency and DemoCenter)
@@ -22,7 +22,7 @@ export default function AnalysisResult() {
     }
   }, [id, location.state])
 
-  if (_loading) {
+  if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
         <Spinner />

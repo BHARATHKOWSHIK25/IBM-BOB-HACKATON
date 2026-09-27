@@ -157,7 +157,7 @@ function ScenarioResult({ result }: { result: AnalysisResponse & { demo_label?: 
           {isBlocked ? '⛔ INSTALLATION BLOCKED' : isReview ? '⚠ REVIEW REQUIRED' : '✓ INSTALLATION ALLOWED'}
         </div>
         <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.4px', marginBottom: 10 }}>
-          {(result as unknown as Record<string, unknown>).package as string ?? ((result as unknown as Record<string, unknown>).request as Record<string, unknown>)?.package as string ?? 'package'}
+          {result.package ?? 'package'}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <RiskBadge risk={riskStr} size="md" />
@@ -249,11 +249,10 @@ function buildTimeline(result: AnalysisResponse) {
   const pkg = result.package ?? 'package'
   const decisionStr = (result.decision as string).toUpperCase()
   const isBlocked = decisionStr === 'BLOCK'
-  const r = result as unknown as Record<string, unknown>
-  const registryExists = (r.registry as Record<string, unknown>)?.exists ?? false
-  const typosquatSuspicious = (r.typosquat as Record<string, unknown>)?.is_suspicious ?? false
-  const typosquatMatch = (r.typosquat as Record<string, unknown>)?.closest_match ?? ''
-  const scriptRisk = ((r.script_risk as Record<string, unknown>)?.risk_level as string) ?? 'UNKNOWN'
+  const registryExists = result.registry?.exists ?? false
+  const typosquatSuspicious = result.typosquat?.is_suspicious ?? false
+  const typosquatMatch = result.typosquat?.closest_match ?? ''
+  const scriptRisk = (result.script_risk?.risk_level as string) ?? 'UNKNOWN'
   const steps = [
     { label: 'AI dependency request received', detail: `AI agent requested: ${pkg}`, color: '#3b82d4' },
     { label: 'DepPhantom intercepted installation', detail: 'Pre-installation security gate activated', color: '#7c5cd8' },

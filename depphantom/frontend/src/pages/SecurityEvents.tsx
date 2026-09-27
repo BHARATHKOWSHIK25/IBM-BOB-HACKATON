@@ -15,7 +15,7 @@ export default function SecurityEvents() {
     risk: '', decision: '', ecosystem: '', package: ''
   })
 
-  const load = () => {
+  useEffect(() => {
     setLoading(true)
     getEvents({
       limit: 100,
@@ -26,9 +26,7 @@ export default function SecurityEvents() {
     })
       .then(setEvents)
       .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { load() }, [filters])
+  }, [filters])
 
   return (
     <div>
