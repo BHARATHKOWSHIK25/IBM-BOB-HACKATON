@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from .database import init_db
 from .api.routes import router
 from .config import get_settings
@@ -117,3 +119,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 app.include_router(router, prefix="/api")
+
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if FRONTEND_DIST.is_dir():
+    @app.get("/{frontend_path:path}", include_in_schema=False)
+    async def serve_frontend(frontend_path: str, request: Request):
+        if frontend_path == "api" or frontend_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+
+        requested_file = (FRONTEND_DIST / frontend_path).resolve()
+        try:
+            requested_file.relative_to(FRONTEND_DIST)
+        except ValueError:
+            raise HTTPException(status_code=404) from None
+
+        if requested_file.is_file():
+            return FileResponse(requested_file)
+
+        accepts_html = "text/html" in request.headers.get("accept", "")
+        if accepts_html:
+            return FileResponse(FRONTEND_DIST / "index.html")
+
+        raise HTTPException(status_code=404)
