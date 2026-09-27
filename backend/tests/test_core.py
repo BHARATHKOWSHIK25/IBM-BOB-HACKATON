@@ -223,6 +223,17 @@ class TestDemoScenarios:
         assert scenario["overall_risk"] == "CRITICAL"
 
 
+class TestSettings:
+    def test_vercel_uses_writable_sqlite_path(self, monkeypatch):
+        from backend.config import Settings
+
+        monkeypatch.setenv("VERCEL", "1")
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+
+        settings = Settings(_env_file=None)
+        assert settings.database_url == "sqlite+aiosqlite:////tmp/depphantom.db"
+
+
 class TestRegistryFailClosed:
     """Verify fail-closed behavior when registry is unreachable."""
 
