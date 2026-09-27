@@ -11,7 +11,11 @@ services:
       - DATABASE_URL=sqlite+aiosqlite:////app/data/depphantom.db
       - DEBUG=false
       - DEMO_MODE=true
-      - CORS_ORIGINS=http://localhost,http://localhost:80
+      - APP_ENV=production
+      # CORS_ORIGINS: Set this to your actual frontend URL in production.
+      # For local Docker use: http://localhost,http://localhost:80
+      # For deployed use: https://your-domain.com
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://localhost:80}
       - PYTHONPATH=/app
     ports:
       - "8000:8000"

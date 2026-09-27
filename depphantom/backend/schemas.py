@@ -43,11 +43,22 @@ class VerifyRequest(BaseModel):
     @field_validator("package")
     @classmethod
     def package_name_valid(cls, v: str) -> str:
+        import re
         v = v.strip()
         if not v:
             raise ValueError("Package name cannot be empty")
         if len(v) > 256:
             raise ValueError("Package name too long")
+        # Block path traversal, null bytes, shell metacharacters
+        # Allow: letters, digits, hyphens, underscores, dots (all valid in package names)
+        if not re.match(r'^[a-zA-Z0-9._\-]+$', v):
+            raise ValueError(
+                "Package name contains invalid characters. "
+                "Only letters, digits, hyphens, underscores, and dots are allowed."
+            )
+        # Block obvious path traversal sequences
+        if ".." in v or v.startswith("/") or v.startswith("\\"):
+            raise ValueError("Package name contains invalid path characters.")
         return v
 
 
@@ -69,6 +80,7 @@ class SignalResult(BaseModel):
 
 class RegistryResult(BaseModel):
     exists: bool
+    registry_error: bool = False  # True when registry was unreachable (distinct from not-found)
     registry_url: Optional[str] = None
     latest_version: Optional[str] = None
     all_versions: List[str] = []

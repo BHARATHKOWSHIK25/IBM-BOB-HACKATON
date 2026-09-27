@@ -221,3 +221,91 @@ class TestDemoScenarios:
         scenario = DEMO_SCENARIOS["typosquatting"]
         assert scenario["decision"] == "BLOCK"
         assert scenario["overall_risk"] == "CRITICAL"
+
+
+class TestRegistryFailClosed:
+    """Verify fail-closed behavior when registry is unreachable."""
+
+    def _make_registry(self, **kwargs):
+        from backend.schemas import RegistryResult
+        return RegistryResult(**{"exists": False, **kwargs})
+
+    def _make_typosquat(self, **kwargs):
+        from backend.schemas import TyposquatResult
+        return TyposquatResult(**kwargs)
+
+    def _make_meta(self, **kwargs):
+        from backend.schemas import MetadataResult
+        return MetadataResult(**kwargs)
+
+    def _make_script(self, **kwargs):
+        from backend.schemas import ScriptRiskResult
+        return ScriptRiskResult(**{"risk_level": "UNKNOWN", "findings": [], "signals": [], **kwargs})
+
+    def _make_dep(self, **kwargs):
+        from backend.schemas import DependencyRiskResult
+        return DependencyRiskResult(**{"risk_level": "LOW", "suspicious_deps": [], "signals": [], **kwargs})
+
+    def _make_intent(self, **kwargs):
+        from backend.schemas import IntentResult
+        return IntentResult(**{"match_level": "UNKNOWN", "explanation": "N/A", "signals": [], **kwargs})
+
+    def test_registry_error_is_not_allow(self):
+        """A registry error must never result in ALLOW."""
+        from backend.risk.engine import calculate_risk, get_decision
+        registry = self._make_registry(exists=False, registry_error=True)
+        risk, _, reasons, explanation = calculate_risk(
+            registry, self._make_typosquat(), self._make_meta(),
+            self._make_script(), self._make_dep(), self._make_intent(),
+            source="AI_AGENT", package_name="unknown-pkg"
+        )
+        decision = get_decision(risk)
+        assert decision != "ALLOW", "Registry error must not result in ALLOW (fail-closed)"
+        assert any("could not be completed" in r.lower() or "network error" in r.lower() for r in reasons)
+        assert "could not be completed" in explanation.lower() or "unreachable" in explanation.lower()
+
+    def test_registry_error_elevates_risk(self):
+        """A registry error on its own should produce at least MEDIUM risk."""
+        from backend.risk.engine import calculate_risk
+        registry = self._make_registry(exists=False, registry_error=True)
+        risk, _, _, _ = calculate_risk(
+            registry, self._make_typosquat(), self._make_meta(),
+            self._make_script(), self._make_dep(), self._make_intent(),
+        )
+        assert risk in ("MEDIUM", "HIGH", "CRITICAL"), f"Registry error risk should not be LOW, got {risk}"
+
+
+class TestInputValidation:
+    """Verify package name validation prevents injection / path traversal."""
+
+    def test_valid_package_names(self):
+        from backend.schemas import VerifyRequest, EcosystemEnum
+        for name in ["requests", "my-package", "my_package", "pkg.v2", "React"]:
+            req = VerifyRequest(package=name, ecosystem=EcosystemEnum.pypi)
+            assert req.package == name
+
+    def test_path_traversal_blocked(self):
+        from backend.schemas import VerifyRequest, EcosystemEnum
+        import pytest
+        with pytest.raises(Exception):
+            VerifyRequest(package="../etc/passwd", ecosystem=EcosystemEnum.pypi)
+
+    def test_shell_metachar_blocked(self):
+        from backend.schemas import VerifyRequest, EcosystemEnum
+        import pytest
+        for bad in ["; rm -rf /", "$(whoami)", "`id`", "pkg && evil", "pkg | cat"]:
+            with pytest.raises(Exception):
+                VerifyRequest(package=bad, ecosystem=EcosystemEnum.pypi)
+
+    def test_empty_package_blocked(self):
+        from backend.schemas import VerifyRequest, EcosystemEnum
+        import pytest
+        with pytest.raises(Exception):
+            VerifyRequest(package="   ", ecosystem=EcosystemEnum.pypi)
+
+    def test_too_long_package_blocked(self):
+        from backend.schemas import VerifyRequest, EcosystemEnum
+        import pytest
+        with pytest.raises(Exception):
+            VerifyRequest(package="a" * 300, ecosystem=EcosystemEnum.pypi)
+

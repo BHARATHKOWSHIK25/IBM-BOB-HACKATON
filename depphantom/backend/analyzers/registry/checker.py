@@ -1,6 +1,15 @@
-"""Registry analyzer — checks whether a package exists in PyPI or npm."""
+"""Registry analyzer — checks whether a package exists in PyPI or npm.
+
+Distinguishes three outcomes:
+  - exists=True               — package found in registry
+  - exists=False              — package confirmed not in registry (404)
+  - exists=False, error=True  — registry unreachable (timeout / network error)
+
+The registry_error flag enables fail-closed behavior: treat a network
+failure differently from a confirmed "not found" response.
+"""
 from __future__ import annotations
-import asyncio
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 import httpx
@@ -8,6 +17,7 @@ from ...schemas import RegistryResult
 from ...config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger("depphantom.registry")
 
 PYPI_BASE = "https://pypi.org/pypi/{name}/json"
 NPM_BASE = "https://registry.npmjs.org/{name}"
@@ -19,9 +29,15 @@ async def check_pypi(package: str, version: Optional[str]) -> RegistryResult:
         async with httpx.AsyncClient(timeout=settings.registry_timeout) as client:
             resp = await client.get(url)
             if resp.status_code == 404:
+                logger.info("PyPI: package '%s' not found (404)", package)
                 return RegistryResult(exists=False)
             if resp.status_code != 200:
-                return RegistryResult(exists=False)
+                logger.warning(
+                    "PyPI: unexpected status %d for '%s' — treating as registry error",
+                    resp.status_code, package
+                )
+                return RegistryResult(exists=False, registry_error=True)
+
             data = resp.json()
             info = data.get("info", {})
             releases = data.get("releases", {})
@@ -48,7 +64,7 @@ async def check_pypi(package: str, version: Optional[str]) -> RegistryResult:
             if info.get("author"):
                 maintainers.append(info["author"])
 
-            # Download stats not directly in JSON API, use bigquery proxy
+            # Download stats — separate request; failure is non-fatal
             download_count = None
             try:
                 stats_url = f"https://pypistats.org/api/packages/{package.lower()}/recent"
@@ -57,8 +73,9 @@ async def check_pypi(package: str, version: Optional[str]) -> RegistryResult:
                     stats_data = stats_resp.json()
                     download_count = stats_data.get("data", {}).get("last_month")
             except Exception:
-                pass
+                pass  # Download count is optional enrichment
 
+            logger.info("PyPI: package '%s' found, version=%s", package, info.get("version"))
             return RegistryResult(
                 exists=True,
                 registry_url=f"https://pypi.org/project/{package}/",
@@ -72,10 +89,16 @@ async def check_pypi(package: str, version: Optional[str]) -> RegistryResult:
                 license=info.get("license"),
                 download_count=download_count,
             )
+
     except httpx.TimeoutException:
-        return RegistryResult(exists=False)
-    except Exception:
-        return RegistryResult(exists=False)
+        logger.warning("PyPI: timeout checking '%s' — registry error", package)
+        return RegistryResult(exists=False, registry_error=True)
+    except httpx.ConnectError:
+        logger.warning("PyPI: connection error checking '%s' — registry error", package)
+        return RegistryResult(exists=False, registry_error=True)
+    except Exception as exc:
+        logger.warning("PyPI: unexpected error checking '%s': %s", package, exc)
+        return RegistryResult(exists=False, registry_error=True)
 
 
 async def check_npm(package: str, version: Optional[str]) -> RegistryResult:
@@ -84,11 +107,16 @@ async def check_npm(package: str, version: Optional[str]) -> RegistryResult:
         async with httpx.AsyncClient(timeout=settings.registry_timeout) as client:
             resp = await client.get(url)
             if resp.status_code == 404:
+                logger.info("npm: package '%s' not found (404)", package)
                 return RegistryResult(exists=False)
             if resp.status_code != 200:
-                return RegistryResult(exists=False)
-            data = resp.json()
+                logger.warning(
+                    "npm: unexpected status %d for '%s' — treating as registry error",
+                    resp.status_code, package
+                )
+                return RegistryResult(exists=False, registry_error=True)
 
+            data = resp.json()
             versions = list(data.get("versions", {}).keys())
             time_data = data.get("time", {})
             created_str = time_data.get("created")
@@ -113,6 +141,7 @@ async def check_npm(package: str, version: Optional[str]) -> RegistryResult:
             homepage = latest_info.get("homepage")
             lic = latest_info.get("license")
 
+            logger.info("npm: package '%s' found, latest=%s", package, latest)
             return RegistryResult(
                 exists=True,
                 registry_url=f"https://www.npmjs.com/package/{package}",
@@ -125,10 +154,16 @@ async def check_npm(package: str, version: Optional[str]) -> RegistryResult:
                 homepage=homepage,
                 license=str(lic) if lic else None,
             )
+
     except httpx.TimeoutException:
-        return RegistryResult(exists=False)
-    except Exception:
-        return RegistryResult(exists=False)
+        logger.warning("npm: timeout checking '%s' — registry error", package)
+        return RegistryResult(exists=False, registry_error=True)
+    except httpx.ConnectError:
+        logger.warning("npm: connection error checking '%s' — registry error", package)
+        return RegistryResult(exists=False, registry_error=True)
+    except Exception as exc:
+        logger.warning("npm: unexpected error checking '%s': %s", package, exc)
+        return RegistryResult(exists=False, registry_error=True)
 
 
 async def check_registry(
@@ -139,4 +174,5 @@ async def check_registry(
         return await check_pypi(package, version)
     elif eco == "npm":
         return await check_npm(package, version)
-    return RegistryResult(exists=False)
+    logger.warning("Unsupported ecosystem '%s' — returning registry error", ecosystem)
+    return RegistryResult(exists=False, registry_error=True)

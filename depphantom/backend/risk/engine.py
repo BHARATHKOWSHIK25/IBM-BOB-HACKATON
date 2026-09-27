@@ -36,6 +36,7 @@ def calculate_risk(
     dep_risk: DependencyRiskResult,
     intent: IntentResult,
     source: str = "AI_AGENT",
+    package_name: str = "",
 ) -> Tuple[str, float, List[str], str]:
     """
     Returns (overall_risk, confidence, reasons, explanation).
@@ -44,8 +45,18 @@ def calculate_risk(
     reasons: List[str] = []
     signals_fired: List[str] = []
 
+    # ── Registry error (fail-closed) ──────────────────────────────────────────
+    if registry.registry_error:
+        # Registry was unreachable — fail closed
+        score += 25.0
+        reasons.append(
+            "Registry verification could not be completed (network error or timeout). "
+            "Installation has not been automatically authorized."
+        )
+        signals_fired.append("REGISTRY_ERROR")
+
     # ── Registry existence ────────────────────────────────────────────────────
-    if not registry.exists:
+    if not registry.exists and not registry.registry_error:
         score += 35.0
         reasons.append("Package does not exist in the registry.")
         signals_fired.append("NOT_FOUND")
@@ -53,7 +64,7 @@ def calculate_risk(
             score += 15.0
             reasons.append("Package was requested by an AI agent and does not exist — likely hallucinated.")
             signals_fired.append("AI_HALLUCINATION")
-    else:
+    elif registry.exists:
         # Package exists — partial credit
         score -= 5.0
 
@@ -161,21 +172,28 @@ def calculate_risk(
     confidence = round(base_confidence, 2)
 
     # ── Explanation ───────────────────────────────────────────────────────────
-    if overall_risk in ("CRITICAL", "HIGH"):
-        pkg_ref = registry.registry_url or "this package"
+    pkg_display = f"'{package_name}'" if package_name else "this package"
+    if registry.registry_error:
         explanation = (
-            f"DepPhantom classified '{pkg_ref}' as "
+            f"Security verification for {pkg_display} could not be completed — "
+            f"registry was unreachable. "
+            f"Risk elevated to {overall_risk} (score: {score:.0f}/100). "
+            f"Installation has not been automatically authorized."
+        )
+    elif overall_risk in ("CRITICAL", "HIGH"):
+        explanation = (
+            f"DepPhantom classified {pkg_display} as "
             f"{overall_risk} risk (score: {score:.0f}/100). "
             f"Primary concerns: {'; '.join(reasons[:3])}."
         )
     elif overall_risk == "MEDIUM":
         explanation = (
-            f"Package shows moderate risk signals (score: {score:.0f}/100). "
+            f"Package {pkg_display} shows moderate risk signals (score: {score:.0f}/100). "
             f"Human review recommended. Concerns: {'; '.join(reasons[:2])}."
         )
     else:
         explanation = (
-            f"Package appears low-risk (score: {score:.0f}/100). "
+            f"Package {pkg_display} appears low-risk (score: {score:.0f}/100). "
             f"No critical signals detected. Installation may proceed with standard monitoring."
         )
 

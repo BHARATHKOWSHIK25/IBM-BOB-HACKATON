@@ -1,5 +1,4 @@
-# DepPhantom — .gitignore
-# Rename this file to .gitignore
+ï»¿# DepPhantom .gitignore
 
 # Python
 __pycache__/

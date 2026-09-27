@@ -16,6 +16,7 @@ export interface SignalResult {
 
 export interface RegistryResult {
   exists: boolean
+  registry_error?: boolean
   registry_url?: string
   latest_version?: string
   all_versions: string[]

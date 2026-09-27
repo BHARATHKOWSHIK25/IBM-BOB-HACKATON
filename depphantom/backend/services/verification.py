@@ -63,19 +63,29 @@ async def verify_dependency(
     overall_risk, confidence, reasons, explanation = calculate_risk(
         registry, typosquat, metadata, script_risk, dep_risk, intent,
         source=req.source.value,
+        package_name=req.package,
     )
 
     # 5. Decision
     decision_str = get_decision(overall_risk, req.source.value)
 
     # 6. Build pipeline steps
+    if registry.registry_error:
+        registry_status = "UNKNOWN"
+        registry_desc = "Registry verification failed — network error or timeout."
+    elif registry.exists:
+        registry_status = "OK"
+        registry_desc = "Package found in registry."
+    else:
+        registry_status = "DANGER"
+        registry_desc = "Package NOT found in registry."
+
     pipeline_steps = [
         SignalResult(
             name="Registry Check",
-            status="OK" if registry.exists else "DANGER",
-            value=registry.exists,
-            description="Package found in registry." if registry.exists
-                        else "Package NOT found in registry.",
+            status=registry_status,
+            value=registry.exists if not registry.registry_error else "ERROR",
+            description=registry_desc,
         ),
         SignalResult(
             name="Name Analysis",
