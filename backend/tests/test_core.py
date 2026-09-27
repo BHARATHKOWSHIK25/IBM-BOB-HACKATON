@@ -222,6 +222,34 @@ class TestDemoScenarios:
         assert scenario["decision"] == "BLOCK"
         assert scenario["overall_risk"] == "CRITICAL"
 
+    def test_demo_result_updates_dashboard_stats(self):
+        import asyncio
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+        from backend import models
+        from backend.api.routes import run_demo_scenario
+        from backend.database import Base
+        from backend.services.verification import get_dashboard_stats
+
+        async def run_scenario_and_get_stats():
+            engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            async with engine.begin() as connection:
+                await connection.run_sync(Base.metadata.create_all)
+
+            session_factory = async_sessionmaker(engine, expire_on_commit=False)
+            async with session_factory() as session:
+                await run_demo_scenario({"scenario_id": "typosquatting"}, session)
+                stats = await get_dashboard_stats(session)
+
+            await engine.dispose()
+            return stats
+
+        stats = asyncio.run(run_scenario_and_get_stats())
+        assert stats["protected_installations"] == 1
+        assert stats["blocked_dependencies"] == 1
+        assert stats["high_risk_packages"] == 1
+        assert stats["ai_hallucinations_detected"] == 1
+        assert stats["recent_events"][0]["decision"] == "BLOCK"
+
 
 class TestSettings:
     def test_vercel_uses_writable_sqlite_path(self, monkeypatch):

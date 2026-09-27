@@ -232,31 +232,25 @@ async def verify_dependency(
 async def get_dashboard_stats(db: AsyncSession) -> dict:
     from sqlalchemy import desc as _desc
 
-    # Fire all 6 queries concurrently instead of sequentially
-    (
-        total,
-        blocked,
-        review,
-        high_risk,
-        hallucinations,
-        recent_result,
-    ) = await asyncio.gather(
-        db.scalar(select(func.count(DependencyRequest.id))),
-        db.scalar(select(func.count(Decision.id)).where(Decision.decision == "BLOCK")),
-        db.scalar(select(func.count(Decision.id)).where(Decision.decision == "REVIEW")),
-        db.scalar(
-            select(func.count(PackageAnalysis.id)).where(
-                PackageAnalysis.overall_risk.in_(["HIGH", "CRITICAL"])
-            )
-        ),
-        db.scalar(
-            select(func.count(DependencyRequest.id)).where(
-                DependencyRequest.source == "AI_AGENT"
-            )
-        ),
-        db.execute(
-            select(AuditEvent).order_by(_desc(AuditEvent.timestamp)).limit(10)
-        ),
+    total = await db.scalar(select(func.count(DependencyRequest.id)))
+    blocked = await db.scalar(
+        select(func.count(Decision.id)).where(Decision.decision == "BLOCK")
+    )
+    review = await db.scalar(
+        select(func.count(Decision.id)).where(Decision.decision == "REVIEW")
+    )
+    high_risk = await db.scalar(
+        select(func.count(PackageAnalysis.id)).where(
+            PackageAnalysis.overall_risk.in_(["HIGH", "CRITICAL"])
+        )
+    )
+    hallucinations = await db.scalar(
+        select(func.count(DependencyRequest.id)).where(
+            DependencyRequest.source == "AI_AGENT"
+        )
+    )
+    recent_result = await db.execute(
+        select(AuditEvent).order_by(_desc(AuditEvent.timestamp)).limit(10)
     )
 
     recent_events = recent_result.scalars().all()
